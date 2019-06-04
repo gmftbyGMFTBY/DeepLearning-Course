@@ -19,6 +19,7 @@ gpustat==0.5.0
 grpcio==1.21.1
 gym==0.12.4
 imageio==2.5.0
+ipdb==0.12
 ipykernel==5.1.1
 ipython==7.5.0
 ipython-genutils==0.2.0
@@ -71,6 +72,7 @@ testpath==0.4.2
 torch==1.1.0
 torchvision==0.3.0
 tornado==6.0.2
+tqdm==4.32.1
 traitlets==4.3.2
 wcwidth==0.1.7
 webencodings==0.5.1

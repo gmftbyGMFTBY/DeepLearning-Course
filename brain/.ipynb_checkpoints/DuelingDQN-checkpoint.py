@@ -11,10 +11,10 @@ class DuelingDQN:
             self,
             n_actions,
             n_features,
-            learning_rate=0.001,
-            reward_decay=0.9,
+            learning_rate=0.01,
+            reward_decay=0.99,
             e_greedy=0.9,
-            replace_target_iter=200,
+            replace_target_iter=300,
             memory_size=500,
             batch_size=32,
             e_greedy_increment=None,
@@ -43,13 +43,12 @@ class DuelingDQN:
         self.replace_target_op = [tf.assign(t, e) for t, e in zip(t_params, e_params)]
 
         if sess is None:
-            sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+            self.sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
             self.sess.run(tf.global_variables_initializer())
         else:
             self.sess = sess
         if output_graph:
             tf.summary.FileWriter("logs/", self.sess.graph)
-        self.cost_his = []
 
     def _build_net(self):
         def build_layers(s, c_names, n_l1, w_initializer, b_initializer):
@@ -120,9 +119,9 @@ class DuelingDQN:
         return action
 
     def learn(self):
+        # replace the target
         if self.learn_step_counter % self.replace_target_iter == 0:
             self.sess.run(self.replace_target_op)
-            print('\ntarget_params_replaced\n')
 
         sample_index = np.random.choice(self.memory_size, size=self.batch_size)
         batch_memory = self.memory[sample_index, :]
@@ -141,7 +140,6 @@ class DuelingDQN:
         _, self.cost = self.sess.run([self._train_op, self.loss],
                                      feed_dict={self.s: batch_memory[:, :self.n_features],
                                                 self.q_target: q_target})
-        self.cost_his.append(self.cost)
 
         self.epsilon = self.epsilon + self.epsilon_increment if self.epsilon < self.epsilon_max else self.epsilon_max
         self.learn_step_counter += 1

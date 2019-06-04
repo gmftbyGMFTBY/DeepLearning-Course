@@ -45,6 +45,7 @@ class Actor(object):
             )
 
         with tf.variable_scope('exp_v'):
+            # same as the MCPG
             log_prob = tf.log(self.acts_prob[0, self.a])
             self.exp_v = tf.reduce_mean(log_prob * self.td_error)  # advantage (TD_error) guided loss
 
@@ -93,8 +94,9 @@ class Critic(object):
             )
 
         with tf.variable_scope('squared_TD_error'):
-            self.td_error = self.r + GAMMA * self.v_ - self.v
-            self.loss = tf.square(self.td_error)    # TD_error = (r+gamma*V_next) - V_eval
+            # make the predict close to real value, td error as the loss
+            self.td_error = self.r + GAMMA * self.v_ - self.v   # TD_error = (r+gamma*V_next) - V_eval
+            self.loss = tf.square(self.td_error)
         with tf.variable_scope('train'):
             self.train_op = tf.train.AdamOptimizer(lr).minimize(self.loss)
 

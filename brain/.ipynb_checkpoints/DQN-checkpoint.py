@@ -15,7 +15,7 @@ class DeepQNetwork:
             n_features,
             learning_rate=0.01,
             reward_decay=0.9,
-            e_greedy=0.9,
+            e_greedy=0.9,    # > 0.9, random search, < 0.9 argmax
             replace_target_iter=300,
             memory_size=500,
             batch_size=32,
@@ -31,9 +31,11 @@ class DeepQNetwork:
         self.memory_size = memory_size
         self.batch_size = batch_size
         self.epsilon_increment = e_greedy_increment
+        # If set increment start from 0 to max, else always e_greedy
         self.epsilon = 0 if e_greedy_increment is not None else self.epsilon_max
 
         # total learning step
+        # decdide when to replace network parameters
         self.learn_step_counter = 0
 
         # initialize zero memory [s, a, r, s_]
@@ -53,7 +55,6 @@ class DeepQNetwork:
             tf.summary.FileWriter("logs/", self.sess.graph)
 
         self.sess.run(tf.global_variables_initializer())
-        self.cost_his = []
 
     def _build_net(self):
         # ------------------ build evaluate_net ------------------
@@ -82,6 +83,7 @@ class DeepQNetwork:
         with tf.variable_scope('train'):
             self._train_op = tf.train.RMSPropOptimizer(self.lr).minimize(self.loss)
 
+        
         # ------------------ build target_net ------------------
         self.s_ = tf.placeholder(tf.float32, [None, self.n_features], name='s_')    # input
         with tf.variable_scope('target_net'):
@@ -104,9 +106,11 @@ class DeepQNetwork:
         if not hasattr(self, 'memory_counter'):
             self.memory_counter = 0
 
+        # [s, a, r, s_]
         transition = np.hstack((s, [a, r], s_))
 
         # replace the old memory with new memory
+        # from collection import deque can make the recurrent deque
         index = self.memory_counter % self.memory_size
         self.memory[index, :] = transition
 
@@ -121,6 +125,7 @@ class DeepQNetwork:
             actions_value = self.sess.run(self.q_eval, feed_dict={self.s: observation})
             action = np.argmax(actions_value)
         else:
+            # randomly choose one action
             action = np.random.randint(0, self.n_actions)
         return action
 
@@ -128,7 +133,6 @@ class DeepQNetwork:
         # check to replace target parameters
         if self.learn_step_counter % self.replace_target_iter == 0:
             self.sess.run(self.replace_target_op)
-            # print('\ntarget_params_replaced\n')
 
         # sample batch memory from all memory
         if self.memory_counter > self.memory_size:
@@ -153,41 +157,11 @@ class DeepQNetwork:
 
         q_target[batch_index, eval_act_index] = reward + self.gamma * np.max(q_next, axis=1)
 
-        """
-        For example in this batch I have 2 samples and 3 actions:
-        q_eval =
-        [[1, 2, 3],
-         [4, 5, 6]]
-        q_target = q_eval =
-        [[1, 2, 3],
-         [4, 5, 6]]
-        Then change q_target with the real q_target value w.r.t the q_eval's action.
-        For example in:
-            sample 0, I took action 0, and the max q_target value is -1;
-            sample 1, I took action 2, and the max q_target value is -2:
-        q_target =
-        [[-1, 2, 3],
-         [4, 5, -2]]
-        So the (q_target - q_eval) becomes:
-        [[(-1)-(1), 0, 0],
-         [0, 0, (-2)-(6)]]
-        We then backpropagate this error w.r.t the corresponding action to network,
-        leave other action as error=0 cause we didn't choose it.
-        """
-
         # train eval network
         _, self.cost = self.sess.run([self._train_op, self.loss],
                                      feed_dict={self.s: batch_memory[:, :self.n_features],
                                                 self.q_target: q_target})
-        self.cost_his.append(self.cost)
 
         # increasing epsilon
         self.epsilon = self.epsilon + self.epsilon_increment if self.epsilon < self.epsilon_max else self.epsilon_max
         self.learn_step_counter += 1
-
-    def plot_cost(self):
-        import matplotlib.pyplot as plt
-        plt.plot(np.arange(len(self.cost_his)), self.cost_his)
-        plt.ylabel('Cost')
-        plt.xlabel('training steps')
-        plt.show()
