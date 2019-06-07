@@ -1,1 +1,0 @@
-wget https://github.com/JamesChuanggg/pytorch-REINFORCE/raw/master/assets/algo.png
